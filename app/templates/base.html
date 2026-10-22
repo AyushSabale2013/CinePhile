@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Discover{% endblock %} · CinePhile</title>
+  <meta name="description" content="CinePhile - discover your next favourite film with content-based machine learning recommendations.">
+  <meta name="author" content="Ayush Sabale">
+  <meta name="theme-color" content="#0b0b0f">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e50914'/%3E%3Cpath d='M25 18l22 14-22 14z' fill='white'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-page="{{ page }}">
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="nav" id="nav">
+    <a class="logo" href="{{ url_for('main.home') }}" aria-label="CinePhile home">CINE<span>PHILE</span></a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="{{ url_for('main.home') }}" {% if page == 'home' %}aria-current="page"{% endif %}>Home</a>
+      <a href="{{ url_for('main.my_list') }}" {% if page == 'mylist' %}aria-current="page"{% endif %}>My List <span class="badge" id="list-count" {% if not my_count %}hidden{% endif %}>{{ my_count }}</span></a>
+      <a href="{{ url_for('main.about') }}" {% if page == 'about' %}aria-current="page"{% endif %}>About</a>
+    </nav>
+    <div class="search" role="search">
+      <form action="{{ url_for('main.search') }}" method="get" autocomplete="off">
+        <label class="sr-only" for="q">Search titles, genres, actors or directors</label>
+        <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="q" name="q" type="search" placeholder="Titles, genres, actors…" value="{{ q or '' }}"
+               role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
+        <kbd aria-hidden="true" title="Press / to search">/</kbd>
+      </form>
+      <ul id="results" role="listbox" aria-label="Search suggestions" hidden></ul>
+      <p id="search-status" class="sr-only" aria-live="polite"></p>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <p class="footer-brand">CINE<span>PHILE</span></p>
+    <p>A content-based movie recommender built with Flask, PostgreSQL and scikit-learn.</p>
+    <p>Designed and developed by <strong>Ayush Sabale</strong> · HCI lab project</p>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>

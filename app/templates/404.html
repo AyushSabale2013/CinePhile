@@ -1,0 +1,9 @@
+docker stats{% extends "base.html" %}
+{% block title %}Page not found{% endblock %}
+{% block content %}
+<section class="block page-top empty-state">
+  <h1>Lost in the cutting room</h1>
+  <p>We couldn't find that page. It may have been moved, or the link is mistyped.</p>
+  <p><a class="btn btn-primary" href="{{ url_for('main.home') }}">Back to home</a> <a class="btn btn-ghost" href="{{ url_for('main.search') }}">Search films</a></p>
+</section>
+{% endblock %}

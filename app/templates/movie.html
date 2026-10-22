@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card, list_button %}
+{% block title %}{{ m.title }}{% endblock %}
+{% block content %}
+<article class="detail" style="--h: {{ hue(m.title) }}">
+  <nav class="crumbs" aria-label="Breadcrumb">
+    <a href="{{ url_for('main.home') }}">Home</a><span aria-hidden="true">/</span><span aria-current="page">{{ m.title }}</span>
+  </nav>
+  <div class="detail-grid">
+    <div class="poster poster-lg" style="--h: {{ hue(m.title) }}" aria-hidden="true">
+      {% if m.poster_url %}<img src="{{ m.poster_url }}" alt="" onerror="this.remove()">{% endif %}
+      <span class="poster-year">{{ m.year }}</span>
+      <span class="poster-title">{{ m.title }}</span>
+    </div>
+    <div class="detail-info">
+      <h1>{{ m.title }}</h1>
+      <p class="meta">
+        <span class="pill-rating" title="Community rating out of 10">★ {{ '%.1f'|format(m.rating) }}</span>
+        <span>{{ m.year }}</span><span>{{ m.runtime_label }}</span>
+      </p>
+      <ul class="chips" aria-label="Genres">
+        {% for g in m.genre_list %}<li><a class="chip" href="{{ url_for('main.search', genre=g) }}">{{ g }}</a></li>{% endfor %}
+      </ul>
+      <p class="lead">{{ m.overview }}</p>
+      <div class="actions">{{ list_button(m, in_list) }}
+        <a class="btn btn-ghost" href="{{ url_for('main.home') }}">← Back to browse</a>
+      </div>
+      <dl class="facts">
+        <div><dt>Director</dt><dd>{{ m.director or '—' }}</dd></div>
+        <div><dt>Starring</dt><dd>{{ m.cast_list|join(', ') or '—' }}</dd></div>
+        <div><dt>Themes</dt><dd>{{ m.keyword_list|join(', ') or '—' }}</dd></div>
+      </dl>
+    </div>
+  </div>
+</article>
+
+<section class="block" aria-labelledby="more-title">
+  <h2 id="more-title">More like this</h2>
+  <p class="hint">Ranked by TF-IDF cosine similarity of genres, themes, people and plot. “Shared” shows why a film was suggested.</p>
+  {% if similar %}
+  <ul class="grid">
+    {% for s, sim, reason in similar %}<li>{{ card(s, sim, reason) }}</li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="hint">Not enough data to compute recommendations yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

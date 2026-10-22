@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cinephile-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cinephile}
+      POSTGRES_USER: ${POSTGRES_USER:-cinephile}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cinephile}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cinephile} -d ${POSTGRES_DB:-cinephile}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    container_name: cinephile-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-cinephile}:${POSTGRES_PASSWORD:-cinephile}@db:5432/${POSTGRES_DB:-cinephile}
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      TMDB_API_KEY: ${TMDB_API_KEY:-}
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+    volumes:
+      - ./data:/data:ro      # drop the Kaggle TMDB CSVs here to import the full catalogue
+
+volumes:
+  pgdata:

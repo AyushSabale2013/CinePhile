@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+instance/
+*.db
+.pytest_cache/
+data/*.csv
+.DS_Store
+
+# Frontend dependencies and build output
+node_modules/
+dist/
+build/
+
+# Environment files
+.env.*
+!.env.example
+
+# Python environments and caches
+.mypy_cache/
+.pytest_cache/
+.coverage
+
+# Logs
+*.log

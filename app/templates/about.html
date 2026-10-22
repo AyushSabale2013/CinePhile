@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<section class="block page-top prose">
+  <h1>About CinePhile</h1>
+  <p class="lead">CinePhile is a movie discovery app that suggests films using <strong>content-based machine learning</strong>. It was designed and developed by <strong>Ayush Sabale</strong> as a Human-Computer Interaction (HCI) lab and continuous-evaluation project.</p>
+
+  <h2>How the recommendations work</h2>
+  <ol>
+    <li><strong>Data:</strong> {{ total }} films are stored in a PostgreSQL database (genres, themes, cast, director, plot, rating).</li>
+    <li><strong>Vectorise:</strong> each film becomes a text document. Genres, themes and directors are weighted higher than plot words, then converted to TF-IDF vectors with scikit-learn.</li>
+    <li><strong>Compare:</strong> cosine similarity measures how close two vectors are. The closest films are shown under “More like this”.</li>
+    <li><strong>Personalise:</strong> films in My List are averaged into a taste profile, and every other film is ranked against it.</li>
+    <li><strong>Re-rank:</strong> 90% content similarity is blended with 10% community rating so good films surface first.</li>
+  </ol>
+
+  <h2>HCI principles applied</h2>
+  <ul>
+    <li><strong>Visibility of system status:</strong> toasts confirm actions, buttons show pressed state, search announces result counts.</li>
+    <li><strong>Recognition over recall:</strong> poster cards, genre chips and breadcrumbs keep options visible.</li>
+    <li><strong>User control and freedom:</strong> every addition to My List can be undone with the same button.</li>
+    <li><strong>Explainability and trust:</strong> each suggestion shows its similarity score and the traits it shares.</li>
+    <li><strong>Accessibility:</strong> keyboard navigation, skip link, ARIA labels, visible focus, high contrast and reduced-motion support.</li>
+    <li><strong>Efficiency:</strong> press <kbd>/</kbd> anywhere to jump to search.</li>
+  </ul>
+  <p>The full mapping to Nielsen's heuristics, Gestalt laws and Fitts's / Hick's laws is in <code>docs/HCI_PRINCIPLES.md</code> in the repository.</p>
+
+  <h2>Tech stack</h2>
+  <p>Python · Flask · PostgreSQL · SQLAlchemy · scikit-learn · pandas · Docker · Git</p>
+</section>
+{% endblock %}

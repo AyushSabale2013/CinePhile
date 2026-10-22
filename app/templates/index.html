@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import row, list_button %}
+{% block title %}Discover{% endblock %}
+{% block content %}
+{% if featured %}
+<section class="hero" style="--h: {{ hue(featured.title) }}" aria-labelledby="hero-title">
+  <div class="hero-inner">
+    <p class="eyebrow">Featured today</p>
+    <h1 id="hero-title">{{ featured.title }}</h1>
+    <p class="meta">
+      <span class="pill-rating">★ {{ '%.1f'|format(featured.rating) }}</span>
+      <span>{{ featured.year }}</span><span>{{ featured.runtime_label }}</span>
+      <span>{{ featured.genre_list|join(' · ') }}</span>
+    </p>
+    <p class="lead">{{ featured.overview }}</p>
+    <div class="actions">
+      <a class="btn btn-primary" href="{{ url_for('main.movie', movie_id=featured.id) }}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg> More info
+      </a>
+      {{ list_button(featured, featured_in_list) }}
+    </div>
+  </div>
+  <div class="hero-poster" aria-hidden="true">
+    <div class="poster" style="--h: {{ hue(featured.title) }}">
+      {% if featured.poster_url %}<img src="{{ featured.poster_url }}" alt="" onerror="this.remove()">{% endif %}
+      <span class="poster-year">{{ featured.year }}</span>
+      <span class="poster-title">{{ featured.title }}</span>
+    </div>
+  </div>
+</section>
+{% else %}
+<section class="empty"><h1>No films yet</h1><p>The database is empty. Run <code>python -m app.seed</code> to load the sample catalogue.</p></section>
+{% endif %}
+
+<div class="rows">
+  {% for r in rows %}{{ row(r.id, r.title, r.movies, r.sims) }}{% endfor %}
+</div>
+{% endblock %}

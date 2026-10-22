@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<section class="block page-top">
+  <h1>{% if q %}Results for “{{ q }}”{% elif genre %}{{ genre }}{% else %}Browse all films{% endif %}</h1>
+  <p class="hint" role="status">{{ results|length }} film{{ '' if results|length == 1 else 's' }} found{% if genre and q %} in {{ genre }}{% endif %}</p>
+  <ul class="chips" aria-label="Filter by genre">
+    <li><a class="chip {% if not genre %}is-active{% endif %}" href="{{ url_for('main.search', q=q) }}" {% if not genre %}aria-current="true"{% endif %}>All</a></li>
+    {% for g in genres %}
+    <li><a class="chip {% if g == genre %}is-active{% endif %}" href="{{ url_for('main.search', q=q, genre=g) }}" {% if g == genre %}aria-current="true"{% endif %}>{{ g }}</a></li>
+    {% endfor %}
+  </ul>
+  {% if results %}
+  <ul class="grid">{% for m in results %}<li>{{ card(m) }}</li>{% endfor %}</ul>
+  {% else %}
+  <div class="empty-state">
+    <h2>Nothing matched</h2>
+    <p>Check the spelling, try a shorter word, or search by genre, actor or director.</p>
+    <p><a class="btn btn-primary" href="{{ url_for('main.search') }}">Browse all films</a></p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

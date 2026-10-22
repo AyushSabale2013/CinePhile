@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import card %}
+{% block title %}My List{% endblock %}
+{% block content %}
+<section class="block page-top">
+  <h1>My List</h1>
+  {% if movies %}
+  <p class="hint">Films you saved. Open one and press the button again to remove it.</p>
+  <ul class="grid">{% for m in movies %}<li>{{ card(m) }}</li>{% endfor %}</ul>
+  {% if picks %}
+  <h2 class="mt">Recommended from your list</h2>
+  <p class="hint">Computed by comparing every film with the average taste profile of your saved titles.</p>
+  <ul class="grid">{% for m in picks %}<li>{{ card(m, sims[loop.index0]) }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% else %}
+  <div class="empty-state">
+    <h2>Your list is empty</h2>
+    <p>Press <strong>+ Add to My List</strong> on any film. CinePhile will then learn your taste and suggest similar titles on the home page.</p>
+    <p><a class="btn btn-primary" href="{{ url_for('main.home') }}">Start browsing</a></p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
