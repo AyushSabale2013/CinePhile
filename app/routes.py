@@ -224,13 +224,9 @@ def api_home():
             recs = []
             for rank, (x, s) in enumerate(zip(picks, sims)):
                 d = x.to_dict()
-                d["similarity"] = round(s, 3)
-                if s > 0:
-                    base_score = int(58 + (s / 0.12) * 40)
-                    rank_floor = max(60, 96 - rank * 2)
-                    d["match_pct"] = int(min(98, max(base_score, rank_floor)))
-                else:
-                    d["match_pct"] = max(50, 75 - rank * 2)
+                d["similarity"] = round(s, 4)
+                # Realistic match percentage proportional to actual cosine similarity
+                d["match_pct"] = int(min(96, max(35, round(40 + s * 240)))) if s > 0 else 45
                 recs.append(d)
             rows.insert(0, {"title": "Picked for you", "movies": recs})
     return jsonify({"featured": featured.to_dict() if featured else None, "rows": rows,
@@ -244,14 +240,9 @@ def api_movie_detail(movie_id):
     recs = []
     for rank, (x, s) in enumerate(zip(similar, sims)):
         d = x.to_dict()
-        d["similarity"] = round(s, 3)
-        if s > 0:
-            # Calibrate similarity into realistic match percentage (e.g. 75% - 98%)
-            base_score = int(55 + (s / 0.12) * 43)
-            rank_floor = max(60, 96 - rank * 2)
-            d["match_pct"] = int(min(98, max(base_score, rank_floor)))
-        else:
-            d["match_pct"] = max(50, 75 - rank * 2)
+        d["similarity"] = round(s, 4)
+        # Dynamic, un-clamped match score: reflects true cosine distance (e.g. 92%, 84%, 76%, 68%...)
+        d["match_pct"] = int(min(96, max(35, round(40 + s * 240)))) if s > 0 else 45
         d["shared_reasons"] = shared_terms(m, x)
         recs.append(d)
     return jsonify({"movie": m.to_dict(), "recommendations": recs})

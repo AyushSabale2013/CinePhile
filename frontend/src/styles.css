@@ -131,6 +131,44 @@ footer button{margin-left:auto;background:none;border:0;color:#aaa;font-size:11p
 .toast{position:fixed;z-index:80;bottom:25px;left:50%;transform:translateX(-50%);background:#f5f5f5;color:#111;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:700;box-shadow:0 8px 30px #0008;display:flex;align-items:center;gap:14px}
 .toast button{background:#e50914;color:#fff;border:0;border-radius:3px;padding:4px 9px;font-size:11px;font-weight:700}
 
+/* My List Page Layout (No Overlap) */
+.list-page{padding:120px 5.2% 60px;min-height:85vh;position:relative;z-index:2}
+.list-header-banner{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:30px;border-bottom:1px solid #222;padding-bottom:20px;flex-wrap:wrap;gap:16px}
+.list-header-banner h1{font:800 38px Manrope,sans-serif;margin:0 0 8px;letter-spacing:-1px}
+.list-subtitle{font-size:13px;color:#aaa;margin:0;max-width:560px;line-height:1.6}
+.list-count-badge{background:#1a1a1a;border:1px solid #333;padding:10px 18px;border-radius:4px;display:flex;flex-direction:column;align-items:center;min-width:100px}
+.list-count-badge b{font-size:24px;color:#fff;font-family:Manrope,sans-serif}
+.list-count-badge span{font-size:10px;color:#888;text-transform:uppercase;letter-spacing:1px}
+.list-item-card{display:flex;flex-direction:column;gap:8px}
+.list-item-card .card{width:100%;flex:none}
+.remove-from-list-btn{background:#181818;color:#aaa;border:1px solid #333;border-radius:3px;padding:6px 10px;font-size:11px;font-weight:600;transition:all .18s;width:100%;text-align:center}
+.remove-from-list-btn:hover{background:#e5091422;color:#e50914;border-color:#e50914}
+.empty-list-card{min-height:340px;background:#111;border:1px dashed #333;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;gap:12px;margin:20px 0}
+.empty-cinema-art{margin-bottom:8px}
+.empty-list-card h2{font:700 24px Manrope,sans-serif;margin:0;color:#fff}
+.empty-list-card p{font-size:13px;color:#888;max-width:440px;line-height:1.6;margin:0}
+.empty-list-card .primary{margin-top:10px}
+.list-recs-wrap{margin-top:50px;border-top:1px solid #222;padding-top:35px}
+
+/* Full Page Loading Screen */
+.page-loader-overlay{position:fixed;inset:0;background:#080808;z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.cinema-spinner{width:46px;height:46px;border:3px solid #222;border-top-color:#e50914;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{100%{transform:rotate(360deg)}}
+.page-loader-overlay p{font-size:12px;letter-spacing:1.5px;color:#888;text-transform:uppercase;font-weight:700}
+
+/* Detail Loading Skeleton */
+.detail-skeleton{display:grid;grid-template-columns:minmax(160px,260px) minmax(0,650px);gap:38px;padding:30px 0}
+.detail-skeleton-copy{display:flex;flex-direction:column;gap:16px}
+.skeleton-line{background:#1e1e1e;border-radius:3px;position:relative;overflow:hidden}
+.skeleton-line::after{content:'';position:absolute;inset:0;transform:translateX(-100%);background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);animation:shimmer 1.4s infinite}
+.skeleton-line.title{height:44px;width:70%}
+.skeleton-line.meta{height:18px;width:40%}
+.skeleton-line.desc{height:80px;width:100%}
+.skeleton-line.desc.short{height:40px;width:85%}
+
+.sim-raw{font-size:9px;color:#46d369;opacity:.85;margin-left:4px}
+
+
 @media(max-width:760px){
   .nav{height:68px;padding:0 4%;gap:20px}
   .brand{font-size:18px}
