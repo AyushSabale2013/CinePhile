@@ -159,47 +159,52 @@ def run(target: int = 500, with_details: bool = True, min_votes: int = 10):
                         if details.get("genres"):
                             genres = "|".join(g["name"] for g in details["genres"] if g.get("name"))
 
-                # Database Upsert
-                movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
-                if movie is None:
-                    movie = Movie.query.filter_by(title=title[:255], year=year).first()
+                # Database Upsert with safe transaction handling
+                try:
+                    movie = Movie.query.filter_by(tmdb_id=tmdb_id).first()
+                    if movie is None:
+                        movie = Movie.query.filter_by(title=title[:255], year=year).first()
 
-                is_new = movie is None
-                if is_new:
-                    movie = Movie(tmdb_id=tmdb_id, title=title[:255], year=year)
-                    db.session.add(movie)
-                    imported += 1
-                else:
-                    updated += 1
+                    is_new = movie is None
+                    if is_new:
+                        movie = Movie(tmdb_id=tmdb_id, title=title[:255], year=year)
+                        db.session.add(movie)
+                        imported += 1
+                    else:
+                        updated += 1
 
-                # Update attributes
-                movie.title = title[:255]
-                movie.year = year
-                movie.rating = rating
-                movie.vote_count = vote_count
-                movie.popularity = popularity
-                movie.overview = overview
-                movie.genres = genres
-                movie.poster_url = poster_url
-                movie.backdrop_url = backdrop_url
-                if director:
-                    movie.director = director
-                if cast_str:
-                    movie.cast = cast_str
-                if keywords_str:
-                    movie.keywords = keywords_str
-                if runtime:
-                    movie.runtime = runtime
+                    # Update attributes
+                    movie.title = title[:255]
+                    movie.year = year
+                    movie.rating = rating
+                    movie.vote_count = vote_count
+                    movie.popularity = popularity
+                    movie.overview = overview
+                    movie.genres = genres
+                    movie.poster_url = poster_url
+                    movie.backdrop_url = backdrop_url
+                    if director:
+                        movie.director = director
+                    if cast_str:
+                        movie.cast = cast_str
+                    if keywords_str:
+                        movie.keywords = keywords_str
+                    if runtime:
+                        movie.runtime = runtime
+
+                    db.session.commit()
+                except Exception as ex:
+                    db.session.rollback()
+                    continue
 
                 total_synced = imported + updated
-                if total_synced % 10 == 0 or total_synced == target:
+                if total_synced % 20 == 0 or total_synced == target:
                     pct = (total_synced / target) * 100
-                    print(f"[{total_synced}/{target}] ({pct:.1f}%) Synced: '{movie.title}' ({movie.year}) | Poster: Yes | Director: {movie.director or 'N/A'}")
+                    print(f"[{total_synced}/{target}] ({pct:.1f}%) Synced: '{movie.title}' ({movie.year}) | Total in DB: {Movie.query.count()}")
 
                 if total_synced >= target:
                     break
 
-            db.session.commit()
             total_pages = int(data.get("total_pages") or 500)
             if page >= min(total_pages, 500) or (imported + updated) >= target:
                 break

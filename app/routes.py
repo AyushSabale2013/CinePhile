@@ -259,8 +259,7 @@ def api_movie_detail(movie_id):
 
 @bp.route("/api/metrics")
 def api_metrics():
-    from .evaluation import compute_metrics_summary
+    from .evaluation import get_model_report
     k = min(max(request.args.get("k", 10, type=int), 3), 30)
-    samples = min(max(request.args.get("samples", 80, type=int), 20), 200)
-    return jsonify(compute_metrics_summary(k=k, sample_size=samples))
+    return jsonify(get_model_report(k=k))
 

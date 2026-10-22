@@ -106,11 +106,26 @@ footer button{margin-left:auto;background:none;border:0;color:#aaa;font-size:11p
 .stats span{font-size:10px;color:#aaa}
 
 /* Metrics Dashboard in Dialog */
-.metrics-card{background:#111;border:1px solid #2d2d2d;border-radius:4px;padding:16px;margin:20px 0}
-.metrics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+.metrics-card{background:#111;border:1px solid #2d2d2d;border-radius:4px;padding:16px;margin:16px 0}
+.metrics-card>b{font-size:12px;letter-spacing:.5px;color:#ccc}
+.metrics-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
 .metric-box{background:#1b1b1b;padding:12px;border-radius:3px}
 .metric-box small{font-size:10px;color:#888;display:block;text-transform:uppercase;letter-spacing:1px}
 .metric-box span{font-size:18px;font-weight:800;color:#46d369;margin-top:4px;display:block}
+
+/* Train/Test Split Bar */
+.split-bar-wrap{margin:10px 0 6px}
+.split-bar{display:flex;height:28px;border-radius:3px;overflow:hidden;font-size:11px;font-weight:700}
+.split-train{background:#e50914;color:#fff;display:flex;align-items:center;justify-content:center;transition:width .4s}
+.split-test{background:#2d2d2d;color:#aaa;display:flex;align-items:center;justify-content:center;transition:width .4s}
+
+/* Evaluation Metrics Table */
+.metrics-table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}
+.metrics-table th{text-align:left;padding:6px 10px;border-bottom:1px solid #333;color:#888;font-weight:600;font-size:11px;letter-spacing:.5px}
+.metrics-table td{padding:8px 10px;border-bottom:1px solid #1e1e1e;color:#ccc;line-height:1.4}
+.metrics-table tr:last-child td{border-bottom:none}
+.metrics-table .metric-val{font-weight:800;font-size:15px;white-space:nowrap;width:80px}
+.metrics-table .metric-val.green{color:#46d369}
 
 /* Interactive Toast with Undo (Nielsen #3: User Control and Freedom) */
 .toast{position:fixed;z-index:80;bottom:25px;left:50%;transform:translateX(-50%);background:#f5f5f5;color:#111;padding:10px 18px;border-radius:4px;font-size:13px;font-weight:700;box-shadow:0 8px 30px #0008;display:flex;align-items:center;gap:14px}

@@ -41,7 +41,7 @@ function App() {
   const [about, setAbout] = useState(false);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState(null);
+  const [metrics, setMetrics] = useState(null);  // full report: {catalogue, model, metrics}
 
   // Helper to extract movie ID from URL pathname or search params
   const getMovieIdFromUrl = useCallback(() => {
@@ -457,17 +457,6 @@ function App() {
                 </button>
               </div>
             )}
-
-            <section className="project-note">
-              <div>
-                <p className="eyebrow">BUILT FOR DISCOVERY</p>
-                <h2>Find your next favourite.</h2>
-                <p>
-                  Explore films by genre, discover similar stories with explainable ML, and build a watchlist that feels like yours.
-                </p>
-              </div>
-              <button onClick={() => setAbout(true)}>How recommendations work</button>
-            </section>
           </main>
         </>
       )}
@@ -496,60 +485,122 @@ function App() {
             aria-labelledby="about-title"
             onClick={(e) => e.stopPropagation()}
           >
-            <button className="close" onClick={() => setAbout(false)}>
-              Close
-            </button>
-            <p className="eyebrow">THE MODEL & SYSTEM</p>
-            <h2 id="about-title">Explainable Content-Based Discovery</h2>
-            <p>
-              CinePhile builds a weighted vector representation of each film using genres ($3\times$), director ($3\times$), thematic keywords ($2\times$), cast ($2\times$), and plot synopsis with suffix stemming.
-              Cosine similarity is blended with Bayesian weighted rating confidence (IMDB formula) to surface relevant, acclaimed films.
+            <button className="close" onClick={() => setAbout(false)}>✕ Close</button>
+
+            <p className="eyebrow">ML MODEL & EVALUATION</p>
+            <h2 id="about-title">CinePhile — Recommendation System</h2>
+            <p className="about-desc">
+              Content-based filtering using <strong>TF-IDF</strong> + <strong>Cosine Similarity</strong>, blended with Bayesian
+              vote-confidence rating. The vectorizer is fit on the <strong>training set only</strong> — the test set is never seen
+              during training (no data leakage).
             </p>
 
-            {metrics && (
-              <div className="metrics-card">
-                <b>Live Model Evaluation Metrics (K=10)</b>
-                <div className="metrics-grid">
-                  <div className="metric-box">
-                    <small>Catalogue Coverage</small>
-                    <span>{metrics.catalogue_coverage_pct}%</span>
-                  </div>
-                  <div className="metric-box">
-                    <small>Intra-List Diversity</small>
-                    <span>{metrics.intra_list_diversity}</span>
-                  </div>
-                  <div className="metric-box">
-                    <small>Hit Rate @ 10</small>
-                    <span>{(metrics.hit_rate_at_k * 100).toFixed(1)}%</span>
-                  </div>
-                  <div className="metric-box">
-                    <small>Explainability Ratio</small>
-                    <span>{metrics.explainability_pct}%</span>
+            {metrics?.catalogue ? (
+              <>
+                <div className="about-section-label">DATASET &amp; TRAIN / TEST SPLIT</div>
+                <div className="split-bar-wrap">
+                  <div className="split-bar">
+                    <div className="split-train" style={{width: metrics.catalogue.train_pct + '%'}}>
+                      Train — {metrics.catalogue.train.toLocaleString()} films ({metrics.catalogue.train_pct}%)
+                    </div>
+                    <div className="split-test" style={{width: metrics.catalogue.test_pct + '%'}}>
+                      Test — {metrics.catalogue.test} ({metrics.catalogue.test_pct}%)
+                    </div>
                   </div>
                 </div>
-              </div>
+                <div className="about-stat-row">
+                  <div className="about-stat">
+                    <span>{metrics.catalogue.total.toLocaleString()}</span>
+                    <small>Total in catalogue</small>
+                  </div>
+                  <div className="about-stat">
+                    <span>{metrics.catalogue.train.toLocaleString()}</span>
+                    <small>Training set</small>
+                  </div>
+                  <div className="about-stat">
+                    <span>{metrics.catalogue.test.toLocaleString()}</span>
+                    <small>Test set</small>
+                  </div>
+                  <div className="about-stat">
+                    <span>{metrics.model?.features?.toLocaleString()}</span>
+                    <small>TF-IDF features</small>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="about-loading">Loading model stats…</div>
             )}
 
-            <div className="stats">
-              <div>
-                <b>Content-based</b>
-                <span>TF-IDF + Cosine Sim</span>
-              </div>
-              <div>
-                <b>Bayesian Blend</b>
-                <span>Vote confidence</span>
-              </div>
-              <div>
-                <b>React 18</b>
-                <span>HCI-focused UI</span>
-              </div>
-            </div>
+            {metrics?.metrics ? (
+              <>
+                <div className="about-section-label">
+                  EVALUATION METRICS — TEST SET &nbsp;
+                  <span className="about-k-badge">K = {metrics.metrics.k}</span>
+                  &nbsp;·&nbsp; {metrics.metrics.num_test_queries} queries evaluated
+                </div>
+                <table className="metrics-table">
+                  <thead>
+                    <tr>
+                      <th>Metric</th>
+                      <th>Score</th>
+                      <th>What it measures</th>
+                      <th>Priority</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="metric-primary">
+                      <td><b>Accuracy (Hit Rate @ {metrics.metrics.k})</b></td>
+                      <td><span className="metric-pill green">{(metrics.metrics.accuracy_at_k * 100).toFixed(2)}%</span></td>
+                      <td>Whether relevant movies are successfully recommended in top {metrics.metrics.k}</td>
+                      <td><span className="priority high">High</span></td>
+                    </tr>
+                    <tr className="metric-primary">
+                      <td><b>Precision @ {metrics.metrics.k}</b></td>
+                      <td><span className="metric-pill green">{(metrics.metrics.precision_at_k * 100).toFixed(2)}%</span></td>
+                      <td>How many of the top {metrics.metrics.k} recs are relevant</td>
+                      <td><span className="priority high">High</span></td>
+                    </tr>
+                    <tr className="metric-primary">
+                      <td><b>Recall @ {metrics.metrics.k}</b></td>
+                      <td><span className="metric-pill green">{(metrics.metrics.recall_at_k * 100).toFixed(2)}%</span></td>
+                      <td>Fraction of all relevant films retrieved</td>
+                      <td><span className="priority high">High</span></td>
+                    </tr>
+                    <tr className="metric-primary">
+                      <td><b>NDCG @ {metrics.metrics.k}</b></td>
+                      <td><span className="metric-pill green">{metrics.metrics.ndcg_at_k.toFixed(4)}</span></td>
+                      <td>Relevant films ranked near the top of the list</td>
+                      <td><span className="priority high">High</span></td>
+                    </tr>
+                    <tr>
+                      <td><b>Coverage</b></td>
+                      <td><span className="metric-pill">{metrics.metrics.catalogue_coverage_pct}%</span></td>
+                      <td>% of catalogue reachable via recommendations</td>
+                      <td><span className="priority med">Medium</span></td>
+                    </tr>
+                    <tr>
+                      <td><b>Diversity</b></td>
+                      <td><span className="metric-pill">{metrics.metrics.intra_list_diversity}</span></td>
+                      <td>Mean pairwise dissimilarity within a rec list</td>
+                      <td><span className="priority med">Medium</span></td>
+                    </tr>
+                    <tr>
+                      <td><b>Explainability</b></td>
+                      <td><span className="metric-pill">{metrics.metrics.explainability_pct}%</span></td>
+                      <td>Recs sharing ≥1 attribute (genre/director/cast/keyword)</td>
+                      <td><span className="priority med">Medium</span></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </>
+            ) : (
+              <div className="about-loading">Computing evaluation metrics…</div>
+            )}
+
             <p className="legal">
-              This product uses the TMDB API for film metadata and official poster artwork.
+              This product uses the TMDB API for film metadata and artwork. Not endorsed by TMDB.
             </p>
-            <button className="primary" onClick={() => setAbout(false)}>
-              Back to browsing
-            </button>
+            <button className="primary" onClick={() => setAbout(false)}>Back to browsing</button>
           </section>
         </div>
       )}
