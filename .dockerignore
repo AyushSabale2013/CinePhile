@@ -8,3 +8,6 @@ instance
 tests
 docs
 data
+*.csv
+!app/data/movies_seed.csv
+

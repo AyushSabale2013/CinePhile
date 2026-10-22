@@ -3,9 +3,21 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 
 const GENRES = ['All', 'Action', 'Sci-Fi', 'Drama', 'Animation', 'Comedy', 'Thriller', 'Romance', 'Horror'];
-const img = (p, s = 'w500') => (p ? (p.startsWith('http') ? p : `https://image.tmdb.org/t/p/${s}${p}`) : '');
 
-// Cinema & Popcorn Themed Fallback Poster
+// Safe TMDB image URL builder handling null, undefined, relative, and absolute paths
+const cleanImgUrl = (p, size = 'w500') => {
+  if (!p || typeof p !== 'string') return '';
+  const trimmed = p.trim();
+  if (!trimmed || trimmed === 'null' || trimmed === 'undefined' || trimmed === 'None') return '';
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  const path = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return `https://image.tmdb.org/t/p/${size}${path}`;
+};
+
+const poster = (m) => (m ? cleanImgUrl(m.poster_url || m.poster_path, 'w342') : '');
+const back = (m) => (m ? cleanImgUrl(m.backdrop_url || m.backdrop_path, 'w1280') || poster(m) : '');
+
+// Cinema & Popcorn Themed SVG Fallback Poster (No Emojis)
 function CinemaFallback({ title, year }) {
   return (
     <div className="fallback-poster" aria-hidden="true">
@@ -29,6 +41,33 @@ function CinemaFallback({ title, year }) {
   );
 }
 
+// Crisp Vector Icons (Replaces all emojis)
+const IconStar = () => (
+  <svg className="icon-svg" viewBox="0 0 24 24" width="13" height="13" fill="#f5c518" aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: '4px' }}>
+    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+  </svg>
+);
+
+const IconCheck = () => (
+  <svg className="icon-svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '5px' }}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const IconPlus = () => (
+  <svg className="icon-svg" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: '5px' }}>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const IconClose = () => (
+  <svg className="icon-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ verticalAlign: '-1px', marginRight: '4px' }}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 function App() {
   const [rows, setRows] = useState([]);
   const [featured, setFeatured] = useState(null);
@@ -41,7 +80,7 @@ function App() {
   const [about, setAbout] = useState(false);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [metrics, setMetrics] = useState(null); // Full metrics payload: { catalogue, model, metrics }
+  const [metrics, setMetrics] = useState(null);
 
   const getMovieIdFromUrl = useCallback(() => {
     const pathMatch = window.location.pathname.match(/\/movie\/(\d+)/);
@@ -54,9 +93,9 @@ function App() {
 
   const loadMovieById = useCallback(async (id, initialData = null) => {
     if (initialData) {
-      setMovie({ ...initialData, loadingDetails: true });
+      setMovie({ ...initialData, loadingDetails: true, error: false });
     } else {
-      setMovie({ id, title: 'Loading film details...', loadingDetails: true });
+      setMovie({ id, title: 'Loading film details...', loadingDetails: true, error: false });
     }
     setQuery('');
     setPage('detail');
@@ -66,16 +105,15 @@ function App() {
       const resp = await fetch('/api/movie/' + id);
       if (resp.ok) {
         const d = await resp.json();
-        setMovie({ ...d.movie, recommendations: d.recommendations || [], loadingDetails: false });
+        setMovie({ ...d.movie, recommendations: d.recommendations || [], loadingDetails: false, error: false });
       } else {
-        setMovie((prev) => (prev ? { ...prev, loadingDetails: false } : null));
+        setMovie((prev) => (prev ? { ...prev, loadingDetails: false, error: true } : { id, error: true }));
       }
     } catch {
-      setMovie((prev) => (prev ? { ...prev, loadingDetails: false } : null));
+      setMovie((prev) => (prev ? { ...prev, loadingDetails: false, error: true } : { id, error: true }));
     }
   }, []);
 
-  // Fetch full metrics report from API
   const fetchMetrics = useCallback(() => {
     fetch('/api/metrics?k=10')
       .then((r) => r.json())
@@ -149,7 +187,7 @@ function App() {
           .then((r) => r.json())
           .then((d) => setResults(d.results || []))
           .catch(() => {}),
-      200
+      220
     );
     return () => {
       clearTimeout(t);
@@ -158,11 +196,12 @@ function App() {
   }, [query]);
 
   const openMovie = (m) => {
+    const targetId = m.tmdb_id || m.id;
     setQuery('');
-    if (window.location.pathname !== `/movie/${m.id}`) {
-      window.history.pushState({ movieId: m.id }, '', `/movie/${m.id}`);
+    if (window.location.pathname !== `/movie/${targetId}`) {
+      window.history.pushState({ movieId: targetId }, '', `/movie/${targetId}`);
     }
-    loadMovieById(m.id, m);
+    loadMovieById(targetId, m);
   };
 
   const goHome = () => {
@@ -185,8 +224,9 @@ function App() {
   };
 
   const toggleList = async (m) => {
+    const targetId = m.id || m.tmdb_id;
     try {
-      const d = await (await fetch('/api/my-list/' + m.id, { method: 'POST' })).json();
+      const d = await (await fetch('/api/my-list/' + targetId, { method: 'POST' })).json();
       if (d.in_list) {
         setList((old) => [...old.filter((x) => x.id !== m.id), m]);
         setNotice({ text: `Added "${m.title}" to My List` });
@@ -203,9 +243,6 @@ function App() {
       setTimeout(() => setNotice(null), 2500);
     }
   };
-
-  const poster = (m) => img(m.poster_url || m.poster_path, 'w342');
-  const back = (m) => img(m.backdrop_url || m.backdrop_path, 'w1280') || poster(m);
 
   function Card({ m, showMatch = false }) {
     const [imgFailed, setImgFailed] = useState(false);
@@ -253,7 +290,7 @@ function App() {
         </div>
         <div className="scroller">
           {(r.movies || []).map((m) => (
-            <Card key={m.id} m={m} showMatch={showMatch} />
+            <Card key={m.id || m.tmdb_id} m={m} showMatch={showMatch} />
           ))}
         </div>
       </section>
@@ -336,7 +373,15 @@ function App() {
             ← Back to browsing
           </button>
 
-          {movie.loadingDetails ? (
+          {movie.error ? (
+            <div className="empty-list-card" style={{ maxWidth: '600px', margin: '40px auto' }}>
+              <h2>Film Not Found</h2>
+              <p>We couldn't retrieve the details for this title.</p>
+              <button className="primary" onClick={goHome}>
+                Back to browsing
+              </button>
+            </div>
+          ) : movie.loadingDetails ? (
             <div className="detail-skeleton" aria-label="Loading movie details">
               <div className="skeleton-card" style={{ height: '380px' }}></div>
               <div className="detail-skeleton-copy">
@@ -351,21 +396,37 @@ function App() {
               <div className="detail-body">
                 <div className="detail-poster">
                   {poster(movie) ? (
-                    <img src={poster(movie)} alt={movie.title + ' poster'} onError={(e) => (e.currentTarget.style.display = 'none')} />
-                  ) : (
+                    <img
+                      src={poster(movie)}
+                      alt={movie.title + ' poster'}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fb = e.currentTarget.parentElement.querySelector('.fallback-poster');
+                        if (fb) fb.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ display: poster(movie) ? 'none' : 'flex', height: '100%' }}>
                     <CinemaFallback title={movie.title} year={movie.year} />
-                  )}
+                  </div>
                 </div>
                 <div>
                   <p className="eyebrow">CINEPHILE PICK</p>
                   <h1>{movie.title}</h1>
                   <div className="meta">
                     <span className="green">
-                      {movie.rating ? '★ ' + Number(movie.rating).toFixed(1) : 'Not rated'}
+                      {movie.rating ? (
+                        <>
+                          <IconStar />
+                          {Number(movie.rating).toFixed(1)}
+                        </>
+                      ) : (
+                        'Not rated'
+                      )}
                     </span>
                     <span>{movie.year}</span>
                     {movie.runtime && <span>{movie.runtime} min</span>}
-                    <span>{movie.genres?.join(' · ')}</span>
+                    <span>{Array.isArray(movie.genres) ? movie.genres.join(' · ') : movie.genres}</span>
                   </div>
                   <p className="overview">
                     {movie.overview || 'A synopsis is not available for this title yet.'}
@@ -383,9 +444,17 @@ function App() {
                     </p>
                   )}
                   <button className="primary" onClick={() => toggleList(movie)}>
-                    {list.some((x) => x.id === movie.id)
-                      ? '✓ In My List (Remove)'
-                      : '+ Add to My List'}
+                    {list.some((x) => x.id === movie.id || (movie.tmdb_id && x.tmdb_id === movie.tmdb_id)) ? (
+                      <>
+                        <IconCheck />
+                        In My List (Remove)
+                      </>
+                    ) : (
+                      <>
+                        <IconPlus />
+                        Add to My List
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -393,12 +462,12 @@ function App() {
               {movie.recommendations?.length > 0 && (
                 <section className="recommend">
                   <div className="row-head">
-                    <h2>More like this (Explainable Content-Based Filtering)</h2>
+                    <h2>More like this (Content-Based Filtering)</h2>
                     <span>Ranked by TF-IDF &amp; Cosine Alignment</span>
                   </div>
                   <div className="scroller">
                     {movie.recommendations.map((m) => (
-                      <Card key={m.id} m={m} showMatch={true} />
+                      <Card key={m.id || m.tmdb_id} m={m} showMatch={true} />
                     ))}
                   </div>
                 </section>
@@ -417,7 +486,7 @@ function App() {
           {results.length ? (
             <div className="grid">
               {results.map((m) => (
-                <Card key={m.id} m={m} />
+                <Card key={m.id || m.tmdb_id} m={m} />
               ))}
             </div>
           ) : (
@@ -449,7 +518,7 @@ function App() {
             <>
               <div className="grid">
                 {list.map((m) => (
-                  <div key={m.id} className="list-item-card">
+                  <div key={m.id || m.tmdb_id} className="list-item-card">
                     <Card m={m} />
                     <button
                       className="remove-from-list-btn"
@@ -459,7 +528,8 @@ function App() {
                       }}
                       title="Remove from My List"
                     >
-                      ✕ Remove
+                      <IconClose />
+                      Remove
                     </button>
                   </div>
                 ))}
@@ -474,7 +544,7 @@ function App() {
                   </div>
                   <div className="scroller">
                     {rows.find((r) => r.title === 'Picked for you').movies.map((m) => (
-                      <Card key={m.id} m={m} showMatch={true} />
+                      <Card key={m.id || m.tmdb_id} m={m} showMatch={true} />
                     ))}
                   </div>
                 </div>
@@ -491,7 +561,7 @@ function App() {
                 </svg>
               </div>
               <h2>Your Watchlist is Empty</h2>
-              <p>Save films you want to watch. Your choices actively train your personalized recommendation engine in real time.</p>
+              <p>Save films you want to watch. Your choices actively guide your personalized recommendation engine.</p>
               <button className="primary" onClick={goHome}>
                 Browse Films
               </button>
@@ -515,10 +585,17 @@ function App() {
                 <h1>{featured.title}</h1>
                 <div className="meta">
                   <span className="green">
-                    {featured.rating ? Number(featured.rating).toFixed(1) + ' / 10' : 'Featured'}
+                    {featured.rating ? (
+                      <>
+                        <IconStar />
+                        {Number(featured.rating).toFixed(1)} / 10
+                      </>
+                    ) : (
+                      'Featured'
+                    )}
                   </span>
                   <span>{featured.year}</span>
-                  <span>{featured.genres?.slice(0, 2).join(' · ')}</span>
+                  <span>{Array.isArray(featured.genres) ? featured.genres.slice(0, 2).join(' · ') : featured.genres}</span>
                 </div>
                 <p className="hero-overview">{featured.overview}</p>
                 <div className="actions">
@@ -526,7 +603,9 @@ function App() {
                     View details
                   </button>
                   <button className="secondary" onClick={() => toggleList(featured)}>
-                    {list.some((x) => x.id === featured.id) ? 'Remove from My List' : 'Add to My List'}
+                    {list.some((x) => x.id === featured.id || (featured.tmdb_id && x.tmdb_id === featured.tmdb_id))
+                      ? 'Remove from My List'
+                      : 'Add to My List'}
                   </button>
                 </div>
               </div>
@@ -563,10 +642,10 @@ function App() {
       <footer>
         <b>CINEPHILE</b>
         <span>designed by Ayush (friendly neighborhood engineer)</span>
-        <button onClick={openAboutModal}>Model & Evaluation Metrics</button>
+        <button onClick={openAboutModal}>Model &amp; Evaluation Metrics</button>
       </footer>
 
-      {/* Interactive Toast with Undo (HCI #3: User Freedom) */}
+      {/* Interactive Toast with Undo */}
       {notice && (
         <div className="toast" role="status">
           <span>{notice.text}</span>
@@ -574,7 +653,7 @@ function App() {
         </div>
       )}
 
-      {/* Modal Dialog with Live ML Metrics (HCI #10: Help & Explainability) */}
+      {/* Modal Dialog with Live ML Metrics */}
       {about && (
         <div className="overlay" onClick={() => setAbout(false)}>
           <section
@@ -585,9 +664,10 @@ function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <button className="close" onClick={() => setAbout(false)}>
-              ✕ Close
+              <IconClose />
+              Close
             </button>
-            <p className="eyebrow">ML MODEL & EVALUATION</p>
+            <p className="eyebrow">ML MODEL &amp; EVALUATION</p>
             <h2 id="about-title">CinePhile — Recommendation System</h2>
             <p className="about-desc">
               Content-based filtering using <strong>TF-IDF</strong> + <strong>Cosine Similarity</strong>, blended with Bayesian

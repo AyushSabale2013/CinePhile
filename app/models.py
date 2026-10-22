@@ -53,6 +53,7 @@ class Movie(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
+            "tmdb_id": self.tmdb_id,
             "title": self.title,
             "year": self.year,
             "rating": self.rating,

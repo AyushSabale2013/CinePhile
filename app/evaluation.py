@@ -53,6 +53,7 @@ def get_model_report(k: int = 10) -> dict:
         "metrics": {
             "k":                    k,
             "accuracy_at_k":        metrics.get("accuracy_at_k", 0.0),
+            "hit_rate_at_k":        metrics.get("accuracy_at_k", 0.0),
             "precision_at_k":       metrics.get("precision_at_k", 0.0),
             "recall_at_k":          metrics.get("recall_at_k", 0.0),
             "ndcg_at_k":            metrics.get("ndcg_at_k", 0.0),
@@ -62,6 +63,10 @@ def get_model_report(k: int = 10) -> dict:
             "num_test_queries":     metrics.get("num_test_queries", 0),
         }
     }
+
+
+# Backwards compatibility alias
+compute_metrics_summary = get_model_report
 
 
 def main():

@@ -1,74 +1,191 @@
-# CinePhile — Movie Discovery
+# CinePhile — Movie Discovery & Recommendation System
 
-A Netflix-inspired movie discovery app with a React frontend, Flask API, PostgreSQL catalogue, and a content-based recommendation model. The interface is deliberately clean: typography and film artwork carry the visual hierarchy; there are no decorative icons or emoji.
+A production-safe, Netflix-inspired movie discovery web application with a React single-page frontend, Flask API, PostgreSQL catalogue, and an explainable content-based recommendation system evaluated with a strict train/test split.
 
-## Stack
+---
 
-- **Frontend:** React + Vite, responsive CSS, DM Sans / Manrope
-- **API:** Python 3.12, Flask, SQLAlchemy
-- **Database:** PostgreSQL 16 (SQLite for local tests)
-- **Recommendations:** scikit-learn TF-IDF + cosine similarity
-- **Catalogue/artwork:** TMDB API import utility using real movie metadata, poster paths and backdrop paths
-- **Deployment:** Docker Compose
+## 1. Architecture Overview
 
-## Start the application
+CinePhile separates responsibilities across three distinct tiers:
 
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        React Frontend (Vite SPA)                       │
+│  Dark cinematic UI · Responsive Grids · Accessible · Zero Emojis       │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP / JSON
+┌───────────────────────────────────▼────────────────────────────────────┐
+│                         Flask API & Web Service                        │
+│  - SPA Routing & Catch-All       - Session-based Watchlists (My List)  │
+│  - Parameter Validation          - Dynamic Similarity Matching Curve   │
+│  - Backend TMDB Client (Hidden)  - Safe Idempotent Upsert Engine       │
+└───────────────────┬───────────────────────────────┬────────────────────┘
+                    │                               │
+         ┌──────────▼──────────┐         ┌──────────▼──────────┐
+         │ PostgreSQL Database │         │ Content Recommender │
+         │  - Movies Catalogue │         │  - Train/Test Split │
+         │  - User Watchlists  │         │  - TF-IDF Vectorizer│
+         │  - TMDB Identifiers │         │  - Cosine Alignment │
+         │  - Artwork Paths    │         │  - Bayesian Blend   │
+         └──────────▲──────────┘         └─────────────────────┘
+                    │
+         ┌──────────┴──────────────────────────────┐
+         │                                         │
+┌────────┴─────────────┐                ┌──────────┴───────────┐
+│   TMDB 5000 CSVs     │                │     TMDB v3 API      │
+│  Offline preparation │                │ Live search fallback │
+│  and model training  │                │ Live artwork healing │
+└──────────────────────┘                └──────────────────────┘
+```
+
+### A. TMDB 5000 Dataset (Offline Data)
+- **Role:** Offline dataset for model preparation, training, and evaluation.
+- **Fields:** `title`, `release_date` (year), `runtime`, `vote_average` (rating), `genres`, `keywords`, `cast` (top 5), `director`, `overview`, `popularity`, `vote_count`, `id` (`tmdb_id`), `poster_path`, `backdrop_path`.
+- **Parsing:** Robust JSON parsing with error recovery handles malformed or missing fields without crashing.
+- **Git & Docker Safety:** Large CSVs are kept out of Git (`.gitignore`) and excluded from Docker build contexts (`.dockerignore`).
+
+### B. Recommendation Engine (`app/recommender.py`)
+- **Pipeline:**
+  1. **Stratified Split:** Deterministic 78% train / 22% test split stratified by genre (no data leakage).
+  2. **Feature Engineering:** Weighted token repetition combining genres (x3), director (x3), keywords (x2), cast (x2), and normalized overview (x1).
+  3. **Vectorizer:** Scikit-learn `TfidfVectorizer` (unigrams + bigrams) fitted strictly on the **training set**.
+  4. **Bayesian Rating Blend:** IMDB weighted vote formula smoothly blends popularity/quality confidence into similarity rankings.
+  5. **Live Evaluation:** Leave-one-out testing yields **Hit Rate @ K (Accuracy)**, **Precision @ K**, **Recall @ K**, and **NDCG @ K**.
+  6. **Caching:** Computed similarity vectors are cached in-memory with a bounded LRU eviction strategy.
+
+### C. TMDB API Integration (`app/tmdb.py`)
+- **Credentials:** `TMDB_API_KEY` is loaded exclusively on the backend from environment variables. Credentials are never sent to the browser, JavaScript bundles, or logs.
+- **Live Fallback:** Unseen movies and artwork are fetched on demand from TMDB v3 API and persisted idempotently.
+- **Rate-Limiting & Timeouts:** Built-in connection pooling, exponential backoff retries, and strict timeouts (4-5s) prevent hanging workers.
+- **Attribution:** TMDB non-endorsement attribution is preserved on the UI and API endpoints.
+
+---
+
+## 2. Environment Configuration
+
+Create a `.env` file in the project root (copied from `.env.example`):
+
+```bash
+# Database Credentials
+POSTGRES_DB=cinephile
+POSTGRES_USER=cinephile
+POSTGRES_PASSWORD=cinephile
+DATABASE_URL=postgresql+psycopg2://cinephile:cinephile@db:5432/cinephile
+
+# Security
+SECRET_KEY=generate-a-secure-random-secret-key
+
+# TMDB API (Optional for demo seed, required for full live sync & artwork enrichment)
+TMDB_API_KEY=your_tmdb_v3_api_key
+
+# Web Service Port (default: 8000)
+WEB_PORT=8000
+```
+
+---
+
+## 3. Running Locally (Docker Compose)
+
+### Start the Service:
 ```bash
 docker compose up --build -d
 ```
+The web service boots on `http://localhost:8000`. On first run with an empty database, it safely loads the bundled seed dataset with high-resolution TMDB artwork.
 
-Open `http://localhost:8000`. The bundled seed catalogue lets the application start without a TMDB key. It is a small demo catalogue, not a 5,000-film training set. For a full real-data catalogue, follow the next section.
-
-## Populate 5,000 real TMDB movies and fit the model
-
-1. Create a TMDB account and obtain a **TMDB v3 API key**. Keep the key private.
-2. Copy `.env.example` to `.env`, then set `TMDB_API_KEY=your_key` and a strong `SECRET_KEY`.
-3. Start the app and import the catalogue:
-
+### Check Status & Health:
 ```bash
-docker compose up --build -d
-docker compose exec web python -m app.sync_tmdb --target 5000
-docker compose restart web
+curl http://localhost:8000/healthz
+```
+Response:
+```json
+{"model_ready": true, "movies": 3502, "status": "ok"}
 ```
 
-The importer fetches real records from TMDB Discover, including valid poster/backdrop paths, ratings, release years, genre labels and overview text. It updates records by TMDB ID, commits page-by-page, and does not fabricate missing films. After restart, the backend fits TF-IDF on the database catalogue at startup. Check `http://localhost:8000/healthz` for model readiness and movie count.
+---
 
-TMDB API availability, rate limits and catalogue contents can change. Some legitimate TMDB records have no poster or backdrop; the UI provides a clean fallback rather than inventing a fake image. The import utility is intentionally explicit so the app does not unexpectedly consume API quota on every boot.
+## 4. Populating & Importing Catalogues Safely
 
-## Recommendation model
-
-`app/recommender.py` represents each movie with a weighted text document built from genres, keywords, director, cast and synopsis. `TfidfVectorizer` creates a sparse matrix, and cosine similarity ranks candidates. My List can be used to form a profile centroid and produce personalised recommendations. Ratings contribute a small tie-breaking signal. This is a **content-based recommendation model**, not a neural-network model trained to predict user ratings; it learns similarity structure from catalogue metadata.
-
-The bundled 60-film seed data is only for smoke-testing. Do not claim a 5,000-film model has been trained until the TMDB import has completed successfully and `/healthz` reports the resulting catalogue size. The model is refit when the backend starts, so restart the web service after importing.
-
-## API endpoints
-
-- `GET /api/home` — featured title and discovery rows
-- `GET /api/search?q=alien&limit=30` — title/genre/cast/director search
-- `GET /api/movie/<id>` — film details and similar films
-- `POST /api/my-list/<id>` — toggle a film in the anonymous session watchlist
-- `GET /healthz` — health and model status
-
-## Helpful commands
-
+### Option A: Import Kaggle TMDB 5000 CSVs
+Place `tmdb_5000_movies.csv` and `tmdb_5000_credits.csv` inside `./data/` (or the project root):
 ```bash
-docker compose logs -f web
-docker compose down                 # stop containers, retain DB volume
-docker compose down -v              # stop and delete DB volume (destructive)
+# Auto-discovers CSV files in ./data or root:
+docker compose exec web python -m app.seed --tmdb
+
+# Or specify custom paths:
+docker compose exec web python -m app.seed --tmdb data/tmdb_5000_movies.csv data/tmdb_5000_credits.csv
+```
+- **Idempotent:** Matches films by `tmdb_id` first, then `(title, year)`.
+- **Safe:** Never deletes existing user watchlists (`my_list` table is untouched).
+- **Non-destructive:** Retains existing poster URLs if CSV rows lack artwork.
+
+### Option B: Sync Full TMDB API Catalogue
+To sync 2,000 to 5,000 real films directly from TMDB Discover:
+```bash
+docker compose exec web python -m app.sync_tmdb --target 3500
 ```
 
-If port 8000 is busy, set `WEB_PORT=8080` in `.env`. Do not run `docker compose down -v` unless you intend to erase the database.
+---
 
-## HCI choices
+## 5. Running the Test Suite
 
-- **Recognition over recall:** consistent visible navigation and labelled actions.
-- **Visual hierarchy:** a single featured hero, clear row headings and restrained red accent.
-- **Feedback:** visible confirmation after watchlist changes.
-- **Consistency and standards:** predictable card layouts, typography and action styles.
-- **Responsive design:** horizontal discovery rails, flexible grids and compact mobile navigation.
-- **Accessibility:** semantic controls, accessible labels, visible focus, lazy-loaded poster images and reduced-motion support.
-- **Progressive disclosure:** detailed synopsis, cast and recommendations appear on a focused film page; project explanation lives in an About dialog.
+Run the comprehensive 14-test suite inside the Docker container:
+```bash
+docker compose exec -e PYTHONPATH=/srv web pytest tests/ -v
+```
+Tests cover:
+1. Recommender similarity logic and Batman / Joker alignment.
+2. HTTP page rendering (`/`, `/movie/<id>`, `/my-list`, `/search`, `/about`, `/healthz`).
+3. Watchlist (My List) toggle and profile centroid personalisation.
+4. Search API querying and ranking.
+5. Suffix stemming rules.
+6. Bayesian IMDB weighted rating calculations.
+7. Live evaluation metrics API (`accuracy_at_k`, `precision_at_k`, `recall_at_k`, `ndcg_at_k`).
+8. Explainability features (shared directors, genres, cast).
+9. Recommender query caching.
+10. Image URL construction with null, undefined, relative, and absolute paths.
+11. TMDB API error handling and missing credentials.
+12. Resilient JSON parsing and CSV data extraction.
+13. Movie detail lookup by both primary key ID and `tmdb_id`.
+14. Idempotent database upsert validation.
 
-## Data and attribution
+---
 
-CinePhile uses the TMDB API but is not endorsed or certified by TMDB. Film metadata and artwork remain subject to TMDB's terms and applicable rights. Use a personal API key in `.env` only; never commit it. The existing Flask templates remain as a fallback for local tests, while Docker builds and serves the React app.
+## 6. Production Deployment on Render
+
+CinePhile is configured as a single Docker Web Service on Render connected to a Render PostgreSQL database.
+
+### Step 1: Render Web Service Settings
+- **Environment:** `Docker`
+- **Build Command:** Built automatically via `Dockerfile` (multi-stage Node.js + Python build).
+- **Start Command:** `./entrypoint.sh` (executes Gunicorn on `0.0.0.0:$PORT`).
+- **Health Check Path:** `/healthz`
+
+### Step 2: Render Environment Variables
+Configure the following in the Render Dashboard:
+- `DATABASE_URL`: Your Render PostgreSQL internal connection string (e.g. `postgresql://user:pass@host/db`).
+- `SECRET_KEY`: A strong random string for session signing.
+- `TMDB_API_KEY`: Your TMDB API v3 key.
+- `PYTHONUNBUFFERED`: `1`
+
+### Step 3: Startup Safety & Database Migrations
+- `entrypoint.sh` executes `python -m app.seed --if-empty`.
+  - If the production database already contains movies, it **skips seeding entirely** to protect live data.
+  - If the database is empty, it initializes the bundled seed dataset with real TMDB artwork.
+- `create_app()` automatically runs additive column migrations (e.g. `backdrop_url`, `tmdb_id`, `popularity`, `vote_count`) without dropping tables or altering existing user records.
+
+---
+
+## 7. HCI & UI/UX Principles Applied
+
+- **Zero Emojis:** Replaced all informal emoji characters with bespoke SVG vectors (crisp popcorn cinema art, vector rating stars, checkmarks, and remove icons).
+- **Doherty Threshold (<400ms feedback):** Fast skeleton loading states, debounced live search, and full-page boot indicators.
+- **User Control & Freedom (Nielsen #3):** Interactive notification toasts provide one-click **Undo** for watchlist removals.
+- **Recognition over Recall (Nielsen #6):** Genre filter chips and clear category rails minimize cognitive search effort.
+- **Explainable AI (Nielsen #10):** Recommendations display specific reasons for alignment (e.g., shared directors, cast, genres) and un-clamped match percentages.
+- **Component Isolation:** Dedicated padding and grid layouts on `/my-list` eliminate navigation header overlaps.
+
+---
+
+## 8. Data Attribution & Legal Notice
+
+CinePhile uses the TMDB API for film metadata and artwork but is not endorsed or certified by TMDB. Film artwork and metadata remain subject to TMDB's terms of service and applicable intellectual property rights.

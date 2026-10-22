@@ -129,19 +129,28 @@ def home():
 
 @bp.route("/movie/<int:movie_id>")
 def movie(movie_id):
+    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first()
+    if not m:
+        from .tmdb import fetch_movie_from_tmdb
+        tmdb_data = fetch_movie_from_tmdb(movie_id)
+        if not tmdb_data:
+            abort(404)
     react_index = current_app.static_folder + "/react/index.html"
     import os
     if os.path.exists(react_index):
         return send_from_directory(current_app.static_folder + "/react", "index.html")
-    m = db.session.get(Movie, movie_id) or abort(404)
-    similar, sims = with_scores(recommender.similar(m.id, 12))
-    reasons = [shared_terms(m, s) for s in similar]
+    similar, sims = with_scores(recommender.similar(m.id, 12)) if m else ([], [])
+    reasons = [shared_terms(m, s) for s in similar] if m else []
     return render_template("movie.html", m=m, similar=list(zip(similar, sims, reasons)),
-                           in_list=m.id in my_ids(), page="movie")
+                           in_list=m.id in my_ids() if m else False, page="movie")
 
 
 @bp.route("/search")
 def search():
+    react_index = current_app.static_folder + "/react/index.html"
+    import os
+    if os.path.exists(react_index):
+        return send_from_directory(current_app.static_folder + "/react", "index.html")
     q = request.args.get("q", "").strip()
     genre = request.args.get("genre", "").strip()
     results = run_search(q, genre)
@@ -151,6 +160,10 @@ def search():
 
 @bp.route("/my-list")
 def my_list():
+    react_index = current_app.static_folder + "/react/index.html"
+    import os
+    if os.path.exists(react_index):
+        return send_from_directory(current_app.static_folder + "/react", "index.html")
     ids = my_ids()
     movies = movies_by_ids(ids)
     picks, sims = with_scores(recommender.for_profile(ids, 12)) if ids else ([], [])
@@ -159,6 +172,10 @@ def my_list():
 
 @bp.route("/about")
 def about():
+    react_index = current_app.static_folder + "/react/index.html"
+    import os
+    if os.path.exists(react_index):
+        return send_from_directory(current_app.static_folder + "/react", "index.html")
     return render_template("about.html", total=Movie.query.count(), page="about")
 
 
@@ -170,13 +187,28 @@ def healthz():
 # --------------------------------------------------------------------- API
 @bp.route("/api/search")
 def api_search():
-    rows = run_search(request.args.get("q", ""), limit=min(max(request.args.get("limit", 30, type=int), 1), 100))
-    return jsonify({"results": [m.to_dict() for m in rows]})
+    q = request.args.get("q", "").strip()
+    limit = min(max(request.args.get("limit", 30, type=int), 1), 100)
+    rows = run_search(q, limit=limit)
+    results = [m.to_dict() for m in rows]
+
+    # If local results are sparse and TMDB_API_KEY is available, enrich with TMDB search
+    if len(results) < 5 and len(q) >= 3:
+        from .tmdb import search_tmdb_movies
+        tmdb_results = search_tmdb_movies(q, limit=limit - len(results))
+        existing_tmdb_ids = {r.get("tmdb_id") for r in results if r.get("tmdb_id")}
+        for tr in tmdb_results:
+            if tr.get("tmdb_id") not in existing_tmdb_ids:
+                tr["id"] = tr["tmdb_id"]
+                results.append(tr)
+                existing_tmdb_ids.add(tr["tmdb_id"])
+
+    return jsonify({"results": results})
 
 
 @bp.route("/api/recommend/<int:movie_id>")
 def api_recommend(movie_id):
-    m = db.session.get(Movie, movie_id) or abort(404)
+    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first() or abort(404)
     movies, sims = with_scores(recommender.similar(m.id, int(request.args.get("k", 10))))
     return jsonify({"movie": m.to_dict(),
                     "recommendations": [dict(x.to_dict(), similarity=round(s, 4)) for x, s in zip(movies, sims)]})
@@ -184,7 +216,7 @@ def api_recommend(movie_id):
 
 @bp.route("/api/my-list/<int:movie_id>", methods=["POST"])
 def api_toggle_list(movie_id):
-    m = db.session.get(Movie, movie_id) or abort(404)
+    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first() or abort(404)
     sid = session_id()
     item = MyListItem.query.filter_by(session_id=sid, movie_id=m.id).first()
     if item:
@@ -226,7 +258,7 @@ def api_home():
                 d = x.to_dict()
                 d["similarity"] = round(s, 4)
                 # Realistic match percentage proportional to actual cosine similarity
-                d["match_pct"] = int(min(96, max(35, round(40 + s * 240)))) if s > 0 else 45
+                d["match_pct"] = int(min(96, max(42, round(46 + s * 115)))) if s > 0 else 45
                 recs.append(d)
             rows.insert(0, {"title": "Picked for you", "movies": recs})
     return jsonify({"featured": featured.to_dict() if featured else None, "rows": rows,
@@ -235,16 +267,47 @@ def api_home():
 
 @bp.route("/api/movie/<int:movie_id>")
 def api_movie_detail(movie_id):
-    m = db.session.get(Movie, movie_id) or abort(404)
-    similar, sims = with_scores(recommender.similar(m.id, 18))
+    # Lookup by primary key id first, then tmdb_id
+    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first()
+
+    # If not found in DB, check live TMDB API if key is available
+    if not m:
+        from .tmdb import fetch_movie_from_tmdb
+        tmdb_data = fetch_movie_from_tmdb(movie_id)
+        if tmdb_data:
+            try:
+                m = Movie(**tmdb_data)
+                db.session.add(m)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                m = Movie.query.filter_by(tmdb_id=movie_id).first()
+
+    if not m:
+        abort(404)
+
+    # Heal missing artwork if tmdb_id is present and TMDB API key is available
+    if not m.poster_url and m.tmdb_id:
+        from .tmdb import fetch_movie_from_tmdb
+        info = fetch_movie_from_tmdb(m.tmdb_id)
+        if info and info.get("poster_url"):
+            m.poster_url = info["poster_url"]
+            m.backdrop_url = info.get("backdrop_url") or m.poster_url
+            try:
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+
     recs = []
-    for rank, (x, s) in enumerate(zip(similar, sims)):
-        d = x.to_dict()
-        d["similarity"] = round(s, 4)
-        # Dynamic, un-clamped match score: reflects true cosine distance (e.g. 92%, 84%, 76%, 68%...)
-        d["match_pct"] = int(min(96, max(35, round(40 + s * 240)))) if s > 0 else 45
-        d["shared_reasons"] = shared_terms(m, x)
-        recs.append(d)
+    if recommender.ready:
+        similar, sims = with_scores(recommender.similar(m.id, 18))
+        for rank, (x, s) in enumerate(zip(similar, sims)):
+            d = x.to_dict()
+            d["similarity"] = round(s, 4)
+            d["match_pct"] = int(min(96, max(42, round(46 + s * 115)))) if s > 0 else 45
+            d["shared_reasons"] = shared_terms(m, x)
+            recs.append(d)
+
     return jsonify({"movie": m.to_dict(), "recommendations": recs})
 
 

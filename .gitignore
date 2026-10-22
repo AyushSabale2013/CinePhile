@@ -6,7 +6,10 @@ venv/
 instance/
 *.db
 .pytest_cache/
-data/*.csv
+# Data files
+*.csv
+!app/data/movies_seed.csv
+
 .DS_Store
 
 # Frontend dependencies and build output
