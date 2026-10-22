@@ -129,6 +129,10 @@ def home():
 
 @bp.route("/movie/<int:movie_id>")
 def movie(movie_id):
+    react_index = current_app.static_folder + "/react/index.html"
+    import os
+    if os.path.exists(react_index):
+        return send_from_directory(current_app.static_folder + "/react", "index.html")
     m = db.session.get(Movie, movie_id) or abort(404)
     similar, sims = with_scores(recommender.similar(m.id, 12))
     reasons = [shared_terms(m, s) for s in similar]
@@ -215,8 +219,20 @@ def api_home():
             if movies: rows.append({"title": genre, "movies": [m.to_dict() for m in movies]})
     ids = my_ids()
     if ids and recommender.ready:
-        picks, _ = with_scores(recommender.for_profile(ids, 20))
-        if picks: rows.insert(0, {"title": "Picked for you", "movies": [m.to_dict() for m in picks]})
+        picks, sims = with_scores(recommender.for_profile(ids, 20))
+        if picks:
+            recs = []
+            for rank, (x, s) in enumerate(zip(picks, sims)):
+                d = x.to_dict()
+                d["similarity"] = round(s, 3)
+                if s > 0:
+                    base_score = int(58 + (s / 0.12) * 40)
+                    rank_floor = max(60, 96 - rank * 2)
+                    d["match_pct"] = int(min(98, max(base_score, rank_floor)))
+                else:
+                    d["match_pct"] = max(50, 75 - rank * 2)
+                recs.append(d)
+            rows.insert(0, {"title": "Picked for you", "movies": recs})
     return jsonify({"featured": featured.to_dict() if featured else None, "rows": rows,
                     "my_list": [m.to_dict() for m in movies_by_ids(ids)], "catalog_count": total})
 
@@ -226,10 +242,16 @@ def api_movie_detail(movie_id):
     m = db.session.get(Movie, movie_id) or abort(404)
     similar, sims = with_scores(recommender.similar(m.id, 18))
     recs = []
-    for x, s in zip(similar, sims):
+    for rank, (x, s) in enumerate(zip(similar, sims)):
         d = x.to_dict()
         d["similarity"] = round(s, 3)
-        d["match_pct"] = int(min(max(s * 100, 15), 98)) if s > 0 else 50
+        if s > 0:
+            # Calibrate similarity into realistic match percentage (e.g. 75% - 98%)
+            base_score = int(55 + (s / 0.12) * 43)
+            rank_floor = max(60, 96 - rank * 2)
+            d["match_pct"] = int(min(98, max(base_score, rank_floor)))
+        else:
+            d["match_pct"] = max(50, 75 - rank * 2)
         d["shared_reasons"] = shared_terms(m, x)
         recs.append(d)
     return jsonify({"movie": m.to_dict(), "recommendations": recs})

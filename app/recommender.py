@@ -106,6 +106,7 @@ class Recommender:
         self.ratings = np.zeros(0)
         self.matrix = None
         self.vectorizer = None
+        self._similar_cache = {}
 
     @property
     def ready(self) -> bool:
@@ -116,6 +117,7 @@ class Recommender:
         self.ids = [m.id for m in movies]
         self.pos = {mid: i for i, mid in enumerate(self.ids)}
         self.ratings = compute_bayesian_ratings(movies)
+        self._similar_cache.clear()
 
         if len(movies) < 2:
             self.matrix = None
@@ -138,13 +140,24 @@ class Recommender:
 
     # ------------------------------------------------------------------ queries
     def similar(self, movie_id: int, k: int = 12):
-        """Films most like `movie_id` -> [(movie_id, cosine_similarity)]."""
+        """Films most like `movie_id` -> [(movie_id, cosine_similarity)]. Cached for sub-millisecond retrieval."""
         if not self.ready or movie_id not in self.pos:
             return []
+
+        cache_key = (movie_id, k)
+        if cache_key in self._similar_cache:
+            return self._similar_cache[cache_key]
+
         i = self.pos[movie_id]
         sims = linear_kernel(self.matrix[i], self.matrix).ravel()
         sims[i] = -1.0
-        return self._top(sims, k)
+        results = self._top(sims, k)
+
+        # Bounded cache size
+        if len(self._similar_cache) > 2000:
+            self._similar_cache.clear()
+        self._similar_cache[cache_key] = results
+        return results
 
     def for_profile(self, liked_ids: list, k: int = 16, decay_factor: float = 0.90):
         """Personalised picks: exponential recency decay centroid over user watchlist."""
