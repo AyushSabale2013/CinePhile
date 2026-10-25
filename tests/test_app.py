@@ -147,3 +147,38 @@ def test_idempotent_database_upsert(client):
         # Loading sample seed again should not duplicate rows
         load_sample()
         assert Movie.query.count() == initial_count
+
+
+def test_unindexed_movie_recommendations_on_the_fly(client):
+    with client.application.app_context():
+        # Movie not in recommender.pos
+        unindexed = Movie(
+            title="Space Odyssey 2099",
+            year=2099,
+            genres="Sci-Fi|Adventure",
+            keywords="space|alien|astronaut",
+            director="Christopher Nolan",
+            cast="Matthew McConaughey",
+            overview="Astronauts venture through a deep space anomaly to find another earth.",
+        )
+        recs = recommender.similar(999999, k=5, movie=unindexed)
+        assert len(recs) > 0
+        titles = [db.session.get(Movie, mid).title for mid, _ in recs]
+        assert "Interstellar" in titles or "Inception" in titles or "The Matrix" in titles
+
+
+def test_config_tmdb_key_propagation(client):
+    with client.application.app_context():
+        from app.tmdb import get_api_key
+        client.application.config["TMDB_API_KEY"] = "test-secret-key-12345"
+        assert get_api_key() == "test-secret-key-12345"
+
+
+def test_metrics_api_arbitrary_k_preserves_catalogue(client):
+    for k_val in [3, 7, 15]:
+        resp = client.get(f"/api/metrics?k={k_val}")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["catalogue"]["total"] > 0
+        assert data["metrics"]["k"] == k_val
+        assert data["metrics"]["catalogue_coverage_pct"] > 0

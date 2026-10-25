@@ -3,29 +3,40 @@
 {% block content %}
 <section class="block page-top prose">
   <h1>About CinePhile</h1>
-  <p class="lead">CinePhile is a movie discovery app that suggests films using <strong>content-based machine learning</strong>. It was designed and developed by <strong>Ayush Sabale</strong> as a Human-Computer Interaction (HCI) lab and continuous-evaluation project.</p>
+  <p class="lead">CinePhile is a movie discovery application that generates film recommendations using <strong>content-based machine learning and information retrieval ranking</strong>. It was designed and developed by <strong>Ayush Sabale</strong> as an HCI and machine learning project.</p>
 
-  <h2>How the recommendations work</h2>
+  <h2>Recommendation Architecture &amp; Feature Engineering</h2>
   <ol>
-    <li><strong>Data:</strong> {{ total }} films are stored in a PostgreSQL database (genres, themes, cast, director, plot, rating).</li>
-    <li><strong>Vectorise:</strong> each film becomes a text document. Genres, themes and directors are weighted higher than plot words, then converted to TF-IDF vectors with scikit-learn.</li>
-    <li><strong>Compare:</strong> cosine similarity measures how close two vectors are. The closest films are shown under “More like this”.</li>
-    <li><strong>Personalise:</strong> films in My List are averaged into a taste profile, and every other film is ranked against it.</li>
-    <li><strong>Re-rank:</strong> 90% content similarity is blended with 10% community rating so good films surface first.</li>
+    <li><strong>Dataset &amp; Schema:</strong> A curated catalogue of {{ total }} distinct, verified feature films from TMDB, containing validated release years, runtimes, ratings, genres, thematic keywords, cast, directors, overviews, and official artwork.</li>
+    <li><strong>Feature Weighting &amp; Vectorization:</strong> Structured attributes are weighted by domain discriminative power: genres (&times;3) and director (&times;3) provide primary stylistic signals; keywords (&times;2) and cast (&times;2) provide thematic and star signals; plot synopsis (&times;1) is stemmed and normalized. Unigrams and bigrams are vectorized using scikit-learn's <code>TfidfVectorizer</code>.</li>
+    <li><strong>Generalization &amp; Leakage Prevention:</strong> The vectorizer vocabulary and IDF weights are fit strictly on the <strong>training split only (78%)</strong>. Unseen test films and dynamic queries are projected into the fitted vector space with zero data leakage.</li>
+    <li><strong>Similarity Computation:</strong> Pairwise cosine similarity is computed via L2-normalized dot products. Personal taste profiles in My List are aggregated via an exponential recency-decay centroid.</li>
+    <li><strong>Bayesian Rating Blend:</strong> Content similarity (88%) is blended with an IMDB Bayesian confidence rating (12%) to promote quality while preserving content relevance.</li>
   </ol>
 
-  <h2>HCI principles applied</h2>
+  <h2>Evaluation Methodology &amp; Metrics</h2>
+  <p>Because CinePhile is a ranking/retrieval engine rather than a discrete classifier, performance is evaluated using standard Information Retrieval ranking metrics on the held-out test set:</p>
   <ul>
-    <li><strong>Visibility of system status:</strong> toasts confirm actions, buttons show pressed state, search announces result counts.</li>
-    <li><strong>Recognition over recall:</strong> poster cards, genre chips and breadcrumbs keep options visible.</li>
-    <li><strong>User control and freedom:</strong> every addition to My List can be undone with the same button.</li>
-    <li><strong>Explainability and trust:</strong> each suggestion shows its similarity score and the traits it shares.</li>
-    <li><strong>Accessibility:</strong> keyboard navigation, skip link, ARIA labels, visible focus, high contrast and reduced-motion support.</li>
-    <li><strong>Efficiency:</strong> press <kbd>/</kbd> anywhere to jump to search.</li>
+    <li><strong>Hit Rate @ K:</strong> Fraction of test queries that retrieve at least one relevant title in the top K.</li>
+    <li><strong>Precision @ K:</strong> Fraction of the top K recommendations that meet multi-attribute relevance criteria.</li>
+    <li><strong>Recall @ K:</strong> Fraction of all relevant catalogue items captured in the top K.</li>
+    <li><strong>NDCG @ K:</strong> Normalised Discounted Cumulative Gain, penalizing relevant items that appear lower in the ranking.</li>
+    <li><strong>Intra-List Diversity &amp; Coverage:</strong> Measures pairwise cosine distance within recommendation rails and catalogue reach.</li>
   </ul>
-  <p>The full mapping to Nielsen's heuristics, Gestalt laws and Fitts's / Hick's laws is in <code>docs/HCI_PRINCIPLES.md</code> in the repository.</p>
 
-  <h2>Tech stack</h2>
-  <p>Python · Flask · PostgreSQL · SQLAlchemy · scikit-learn · pandas · Docker · Git</p>
+  <h2>Model Limitations &amp; Similarity vs. Accuracy</h2>
+  <p>Content-based systems compute vector alignment rather than classification labels. Similarity scores reflect textual and categorical affinity, not human ground-truth preference ratings. Pure metadata splits evaluate representation generalization, while true recommendation satisfaction requires logged user interaction signals.</p>
+
+  <h2>HCI Principles Applied</h2>
+  <ul>
+    <li><strong>Visibility of system status:</strong> Feedback toasts confirm watchlist updates with undo capability; loading states are explicitly communicated.</li>
+    <li><strong>Recognition over recall:</strong> Visual poster cards, genre chips, and breadcrumbs keep options scannable.</li>
+    <li><strong>Explainability and trust:</strong> Recommendations disclose their match percentage and shared attributes (director, genre, cast, keywords).</li>
+    <li><strong>Accessibility:</strong> Semantic HTML, ARIA attributes, keyboard navigation, and high contrast ratios.</li>
+    <li><strong>Efficiency:</strong> Press <kbd>/</kbd> anywhere to focus discovery search.</li>
+  </ul>
+
+  <h2>Tech Stack</h2>
+  <p>Python &middot; Flask &middot; React &middot; PostgreSQL &middot; SQLAlchemy &middot; scikit-learn &middot; pandas &middot; Docker &middot; Vite</p>
 </section>
 {% endblock %}

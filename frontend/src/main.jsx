@@ -779,6 +779,41 @@ function App() {
               <div className="about-loading">Computing evaluation metrics…</div>
             )}
 
+            {/* Baseline Comparison */}
+            {metrics?.baselines && (
+              <>
+                <div className="about-section-label" style={{ marginTop: '20px' }}>
+                  BENCHMARK BASELINE COMPARISONS (TOP-10)
+                </div>
+                <table className="metrics-table">
+                  <thead>
+                    <tr>
+                      <th>Model / Baseline</th>
+                      <th>Precision @ 10</th>
+                      <th>NDCG @ 10</th>
+                      <th>Hit Rate @ 10</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.values(metrics.baselines).map((b, idx) => (
+                      <tr key={idx} className={b.name.includes("Proposed") ? "metric-primary" : ""}>
+                        <td><b>{b.name}</b></td>
+                        <td><span className={`metric-pill ${b.name.includes("Proposed") ? "green" : ""}`}>{(b.precision_at_10 * 100).toFixed(1)}%</span></td>
+                        <td><span className={`metric-pill ${b.name.includes("Proposed") ? "green" : ""}`}>{b.ndcg_at_10.toFixed(4)}</span></td>
+                        <td><span className={`metric-pill ${b.name.includes("Proposed") ? "green" : ""}`}>{(b.hit_rate_at_10 * 100).toFixed(1)}%</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </>
+            )}
+
+            {/* Model Limitations Notice */}
+            <div style={{ marginTop: '20px', padding: '12px 14px', background: '#1c1c1c', border: '1px solid #333', borderRadius: '4px', fontSize: '12px', color: '#aaa', lineHeight: '1.6' }}>
+              <strong style={{ color: '#fff', display: 'block', marginBottom: '4px' }}>Model Limitations &amp; Task Scope:</strong>
+              CinePhile operates as an Information Retrieval ranking engine rather than a discrete classifier. Similarity scores quantify feature vector alignment in the weighted TF-IDF space, not discrete accuracy or subjective user satisfaction ratings.
+            </div>
+
             <p className="legal">
               This product uses the TMDB API for film metadata and artwork. Not endorsed by TMDB.
             </p>

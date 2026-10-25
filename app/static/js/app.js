@@ -78,7 +78,7 @@
       status.textContent = "No suggestions found";
     } else {
       list.innerHTML = rows.map((m, n) =>
-        `<li role="option" id="opt-${n}" aria-selected="false"><a href="${m.url}"><span>${esc(m.title)} <small>${m.year}</small></span><small>★ ${m.rating.toFixed(1)}</small></a></li>`
+        `<li role="option" id="opt-${n}" aria-selected="false"><a href="${m.url}"><span>${esc(m.title)} <small>${m.year}</small></span><small><svg viewBox="0 0 24 24" aria-hidden="true" width="11" height="11" fill="currentColor" style="vertical-align: -1px; margin-right: 2px;"><path d="M12 2l3 6.5 7 .9-5.2 4.8 1.4 7L12 17.8 5.8 21.2l1.4-7L2 9.4l7-.9z"/></svg>${m.rating.toFixed(1)}</small></a></li>`
       ).join("") + `<li class="more" role="option"><a href="/search?q=${encodeURIComponent(q)}">See all results for “${esc(q)}”</a></li>`;
       items = $$("li[role=option]", list);
       status.textContent = `${rows.length} suggestion${rows.length > 1 ? "s" : ""} available. Use up and down arrows to review.`;

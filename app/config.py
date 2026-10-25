@@ -34,3 +34,5 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=365)
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_HTTPONLY = True
+
+    TMDB_API_KEY = os.getenv("TMDB_API_KEY", "").strip()

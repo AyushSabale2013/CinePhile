@@ -133,13 +133,21 @@ def movie(movie_id):
     if not m:
         from .tmdb import fetch_movie_from_tmdb
         tmdb_data = fetch_movie_from_tmdb(movie_id)
-        if not tmdb_data:
+        if tmdb_data:
+            try:
+                m = Movie(**tmdb_data)
+                db.session.add(m)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                m = Movie.query.filter_by(tmdb_id=movie_id).first()
+        else:
             abort(404)
     react_index = current_app.static_folder + "/react/index.html"
     import os
     if os.path.exists(react_index):
         return send_from_directory(current_app.static_folder + "/react", "index.html")
-    similar, sims = with_scores(recommender.similar(m.id, 12)) if m else ([], [])
+    similar, sims = with_scores(recommender.similar(m.id, 12, movie=m)) if m else ([], [])
     reasons = [shared_terms(m, s) for s in similar] if m else []
     return render_template("movie.html", m=m, similar=list(zip(similar, sims, reasons)),
                            in_list=m.id in my_ids() if m else False, page="movie")
@@ -216,7 +224,20 @@ def api_recommend(movie_id):
 
 @bp.route("/api/my-list/<int:movie_id>", methods=["POST"])
 def api_toggle_list(movie_id):
-    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first() or abort(404)
+    m = db.session.get(Movie, movie_id) or Movie.query.filter_by(tmdb_id=movie_id).first()
+    if not m:
+        from .tmdb import fetch_movie_from_tmdb
+        tmdb_data = fetch_movie_from_tmdb(movie_id)
+        if tmdb_data:
+            try:
+                m = Movie(**tmdb_data)
+                db.session.add(m)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                m = Movie.query.filter_by(tmdb_id=movie_id).first()
+    if not m:
+        abort(404)
     sid = session_id()
     item = MyListItem.query.filter_by(session_id=sid, movie_id=m.id).first()
     if item:
@@ -300,7 +321,7 @@ def api_movie_detail(movie_id):
 
     recs = []
     if recommender.ready:
-        similar, sims = with_scores(recommender.similar(m.id, 18))
+        similar, sims = with_scores(recommender.similar(m.id, 18, movie=m))
         for rank, (x, s) in enumerate(zip(similar, sims)):
             d = x.to_dict()
             d["similarity"] = round(s, 4)

@@ -422,16 +422,31 @@ class Recommender:
         self.eval_results = {}; self._similar_cache = {}
 
     # -------------------------------------------------------------- inference
-    def similar(self, movie_id: int, k: int = 12):
+    def similar(self, movie_id: int, k: int = 12, movie=None):
         """Top-K similar films for a given movie id (cosine + Bayesian blend). Cached."""
-        if not self.ready or movie_id not in self.pos:
+        if not self.ready:
             return []
         cache_key = (movie_id, k)
         if cache_key in self._similar_cache:
             return self._similar_cache[cache_key]
-        i   = self.pos[movie_id]
-        sims = linear_kernel(self.matrix[i], self.matrix).ravel()
-        sims[i] = -1.0
+
+        if movie_id in self.pos:
+            i = self.pos[movie_id]
+            sims = linear_kernel(self.matrix[i], self.matrix).ravel()
+            sims[i] = -1.0
+        else:
+            if movie is None:
+                from .models import Movie
+                from .extensions import db
+                movie = db.session.get(Movie, movie_id)
+            if not movie:
+                return []
+            doc = build_document(movie)
+            if not doc.strip():
+                return []
+            vec = self.vectorizer.transform([doc])
+            sims = linear_kernel(vec, self.matrix).ravel()
+
         result = self._top(sims, k)
         if len(self._similar_cache) > 2000:
             self._similar_cache.clear()
